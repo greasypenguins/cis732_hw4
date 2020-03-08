@@ -202,7 +202,24 @@ def accuracy(pred_outputs, actual_outputs):
             num_correct += 1.0
     return num_correct / float(len(pred_outputs))
 
+def get_confusion_matrix(num_possible_vals, pred_vals, actual_vals):
+    if len(pred_vals) != len(actual_vals):
+        raise Exception("Invalid length of input or incorrect position")
+    cm = list()
+    for row_val in range(num_possible_vals):
+        row = list()
+        for col_val in range(num_possible_vals):
+            count = 0
+            #Find number of times that row_val appeared in pred_vals at the same index that col_val appeared in actual_vals
+            for i, pred_val in enumerate(pred_vals):
+                if (pred_val == row_val) and (actual_vals[i] == col_val):
+                    count += 1
+            row.append(count)
+        cm.append(row)
+    return cm
+
 def main():
+    print("WARNING: This script assumes the prediction/output attribute is the last one for each data point in the .arff file!")
     #Get arguments
     ap = argparse.ArgumentParser()
     ap.add_argument("-f", "--filename",
@@ -231,6 +248,7 @@ def main():
     else:
         #Parse validation ARFF file
         print("Reading \"{}\" (validation data)".format(args.val_filename))
+        print("  Assuming only data differs from training .arff file")
         with open(args.val_filename) as f:
             arff_data.read_val_data(f)
         split_percent = float(arff_data.num_training) / float(len(arff_data))
@@ -286,6 +304,25 @@ def main():
     print("Validation error: {:.2f}%".format(100.0 * validation_error))
 
     #Generate confusion matrix
+    print("Generating confusion matrices")
+    num_possible_vals = len(arff_data.attributes[-1][1])
+    training_cm = get_confusion_matrix(num_possible_vals, pred_training_outputs, training_outputs)
+    validation_cm = get_confusion_matrix(num_possible_vals, pred_validation_outputs, validation_outputs)
+
+    print("Confusion matrix format:")
+    print("           Act 0 | Act 1 | Act 2 | ...")
+    print("  Pred 0 |   x   |   x   |   x   | ...")
+    print("  Pred 1 |   x   |   x   |   x   | ...")
+    print("  Pred 2 |   x   |   x   |   x   | ...")
+    print("  ...    |  ...  |  ...  |  ...  | ...")
+
+    print("Training confusion matrix:")
+    for row in training_cm:
+        print("  {}".format(row))
+
+    print("Validation confusion matrix:")
+    for row in validation_cm:
+        print("  {}".format(row))
 
     return
 
