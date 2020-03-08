@@ -2,7 +2,7 @@
 
 Use Python 3 (developed and tested with Python 3.6)
 
-To run hw4_1.py:
+##To run hw4_1.py:
 1. Put the .arff file(s) in the same directory as the python script
 2. Make sure you have argparse, random, and time
 3. Run "python3 hw4_1.py -h" to see the options
@@ -12,3 +12,11 @@ To run hw4_1.py:
     - "python3 hw4_1.py -s 0.8"
     - "python3 hw4_1.py -f titanic_training.arff -v titanic_validation.arff"
     - "python3 hw4_1.py -s 0.7 -v titanic_validation.arff"
+    - etc
+
+##To run hw4_2.py:
+It is the same as part 1  except there is an additional option to specify the number of hidden layers.
+Example commands:
+    - "python3 hw4_2.py"
+    - "python3 hw4_2.py -l 3"
+    - etc
