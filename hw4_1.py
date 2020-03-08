@@ -17,23 +17,7 @@ class data:
         self.data = list()
         self.data_verbose = list() #Can be derived from attributes and data
 
-    # def split_percent(self, percent):
-    #     first_num = round(percent * len(self.data))
-    #     return self.split_num(first_num)
-
-    # def split_num(self, first_num):
-    #     first = data()
-    #     second = data()
-
-    #     first.attributes = self.attributes
-    #     second.attributes = self.attributes
-
-    #     first.data = self.data[:first_num]
-    #     first.data_verbose = self.data_verbose[:first_num]
-    #     second.data = self.data[first_num:]
-    #     second.data_verbose = self.data_verbose[first_num:]
-
-    #     return first, second
+        return
 
     def split_percent(self, percent):
         num_first = round(percent * len(self.data))
@@ -78,29 +62,12 @@ class data:
 
     def get_validation_datapoints(self):
         return self.data[self.num_training:]
+    
+    def get_attribute_name(self, pos):
+        return self.attributes[pos][0]
 
-    # def split_inputs_output(self):
-    #     inputs = data()
-    #     output = data()
-
-    #     inputs.attributes = self.attributes[:-1]
-    #     output.attributes = list()
-    #     output.attributes.append(self.attributes[-1])
-
-    #     inputs.data = [datapoint[:-1] for datapoint in self.data]
-    #     inputs.data_verbose = [datapoint[:-1] for datapoint in self.data_verbose]
-        
-    #     for datapoint in self.data:
-    #         new_datapoint = list()
-    #         new_datapoint.append(datapoint[-1])
-    #         output.data.append(new_datapoint)
-
-    #     for datapoint in self.data_verbose:
-    #         new_datapoint = list()
-    #         new_datapoint.append(datapoint[-1])
-    #         output.data_verbose.append(new_datapoint)
-
-    #     return inputs, output
+    def get_attribute_label_name(self, pos, val):
+        return self.attributes[pos][1][val]
 
 class arff(data):
     def __init__(self, f):
@@ -146,6 +113,8 @@ class arff(data):
             else:
                 raise Exception("Unknown arff format")
 
+        return
+
 class naive_bayes:
     def __init__(self, dataset):
         self.dataset = dataset
@@ -180,6 +149,7 @@ class naive_bayes:
         return max_i
 
     def probability_of_value(self, position, value):
+        #P(xn)
         count = 0.0
         for datapoint in self.dataset.data[:self.dataset.num_training]:
             if datapoint[position] == value:
@@ -187,6 +157,7 @@ class naive_bayes:
         return count / float(self.dataset.num_training)
 
     def probability_of_value_given_value(self, pos, val, given_pos, given_val):
+        #P(xm | xn)
         count = 0.0
         total = 0.0
         for datapoint in self.dataset.data[:self.dataset.num_training]:
@@ -209,7 +180,7 @@ class naive_bayes:
 
         return prob
 
-def error(pred_outputs, actual_outputs):
+def accuracy(pred_outputs, actual_outputs):
     if len(pred_outputs) != len(actual_outputs):
         raise Exception("Different length lists")
     num_correct = 0.0
@@ -225,28 +196,39 @@ def main():
     args = ap.parse_args()
 
     #Parse ARFF file
+    print("Reading .arff file")
     with open(args.filename) as f:
         arff_data = arff(f)
 
     #Prepare data
+    print("Shuffling data")
     arff_data.shuffle()
-    arff_data.split_percent(.75)
+
+    split_percent = 0.75
+    print("Splitting data into {:.2f}% training and {:.2f}% validation".format(100.0 * split_percent, 100.0 * (1.0 - split_percent)))
+    arff_data.split_percent(split_percent)
 
     #Perform Naive Bayes
+    print("Using Naive Bayes")
     nb = naive_bayes(arff_data)
 
     #Demo titanic-specific data
+    print("Predicting a sample data point")
     datapoint = list()
     for _ in range(len(arff_data.attributes)):
         datapoint.append(0)
 
     datapoint = [0, 0, 0, 0]
+    datapoint_verbose = [arff_data.get_attribute_label_name(pos, val) for pos, val in enumerate(datapoint)]
 
     prob = nb.probability_given_inputs(datapoint)
-    print("Probability of {} given {} is {:.2f}%".format(datapoint[-1], datapoint[:-1], 100.0 * prob))
+    print("  Probability of {} given {} is {:.2f}%".format(datapoint[-1], datapoint[:-1], 100.0 * prob))
+    print("  Probability of {} given {} is {:.2f}%".format(datapoint_verbose[-1], datapoint_verbose[:-1], 100.0 * prob))
 
     pred = nb.predict_output(datapoint[:-1])
-    print("Prediction of {} is {}".format(datapoint[:-1], pred))
+    pred_verbose = arff_data.get_attribute_label_name(len(datapoint) - 1, pred)
+    print("  Prediction of {} is {}".format(datapoint[:-1], pred))
+    print("  Prediction of {} is {}".format(datapoint_verbose[:-1], pred_verbose))
 
     #Run Naive Bayes predictions for training and validation data
     training_datapoints = arff_data.get_training_datapoints()
@@ -261,19 +243,19 @@ def main():
     start_time = time.time()
     pred_training_outputs = nb.predict_outputs(training_inputs)
     end_time = time.time()
-    print("Time taken: {:.2f} s".format(end_time - start_time))
+    print("  Time taken: {:.2f} s".format(end_time - start_time))
 
     print("Predicting validation outputs")
     start_time = time.time()
     pred_validation_outputs = nb.predict_outputs(validation_inputs)
     end_time = time.time()
-    print("Time taken: {:.2f} s".format(end_time - start_time))
+    print("  Time taken: {:.2f} s".format(end_time - start_time))
     
-    training_error = error(pred_training_outputs, training_outputs)
-    validation_error = error(pred_validation_outputs, validation_outputs)
+    training_error = 1.0 - accuracy(pred_training_outputs, training_outputs)
+    validation_error = 1.0 - accuracy(pred_validation_outputs, validation_outputs)
 
-    print("Training error: {}".format(training_error))
-    print("Validation error: {}".format(validation_error))
+    print("Training error: {:.2f}%".format(100.0 * training_error))
+    print("Validation error: {:.2f}%".format(100.0 * validation_error))
 
     #Generate confusion matrix
 
