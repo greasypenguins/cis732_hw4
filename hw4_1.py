@@ -3,6 +3,7 @@
 #sklearn docs
 #https://machinelearningmastery.com/naive-bayes-classifier-scratch-python/
 #https://en.wikipedia.org/wiki/Confusion_matrix
+#https://machinelearningmastery.com/classification-as-conditional-probability-and-the-naive-bayes-algorithm/
 
 import argparse
 import random
@@ -12,7 +13,7 @@ class data:
         #Initialize data structures
         self.attributes = list()
         self.data = list()
-        self.data_verbose = list()
+        self.data_verbose = list() #Can be derived from attributes and data
 
     def split_percent(self, percent):
         first_num = round(percent * len(self.data))
@@ -128,6 +129,60 @@ class arff(data):
             else:
                 raise Exception("Unknown arff format")
 
+class naive_bayes:
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.inputs = None
+        self.output = None
+
+    def predict(self, input_datapoint):
+        #For each label, predict probability of label
+        probs = list()
+        for i, _ in enumerate(self.dataset.attributes[-1][1]):
+            datapoint = input_datapoint[:]
+            datapoint.append(i)
+            probs.append(self.probability_given_inputs(datapoint))
+
+        #Choose highest probability and return that class (MAP)
+        max_i = 0.0
+        max_prob = 0.0
+        for i, prob in enumerate(probs):
+            if prob > max_prob:
+                max_i = i
+                max_prob = prob
+        
+        return max_i
+
+    def probability_of_value(self, position, value):
+        count = 0.0
+        for datapoint in self.dataset.data:
+            if datapoint[position] == value:
+                count += 1.0
+        return count / float(len(self.dataset))
+
+    def probability_of_value_given_value(self, pos, val, given_pos, given_val):
+        count = 0.0
+        total = 0.0
+        for datapoint in self.dataset.data:
+            if datapoint[given_pos] == given_val:
+                total += 1.0
+                if datapoint[pos] == val:
+                    count += 1.0
+        if total == 0:
+            raise Exception("Value {} never found in position {}".format(given_val, given_pos))
+        return count / total
+
+    def probability_given_inputs(self, datapoint):
+        #P(y | x1, x2, ... xn) = P(x1|y) * P(x2|y) * … P(xn|y) * P(y)
+        prob = 1.0
+        
+        for pos, val in enumerate(datapoint[:-1]):
+            prob *= self.probability_of_value_given_value(pos, val, -1, datapoint[-1])
+        
+        prob *= self.probability_of_value(-1, datapoint[-1])
+
+        return prob
+
 def main():
     #Get arguments
     ap = argparse.ArgumentParser()
@@ -151,7 +206,17 @@ def main():
     #print(validation_output)
 
     #Perform Naive Bayes
-    
+    nb = naive_bayes(training_data)
+
+    datapoint = [0, 0, 0, 0]
+
+    prob = nb.probability_given_inputs(datapoint)
+    print("Probability of {} given {} is {:.2f}%".format(datapoint[-1], datapoint[:-1], 100.0 * prob))
+
+    pred = nb.predict(datapoint[:-1])
+    print("Prediction of {} is {}".format(datapoint[:-1], pred))
+
+
 
     return
 
