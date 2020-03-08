@@ -61,6 +61,29 @@ class data:
 
         return
 
+    def split_inputs_output(self):
+        inputs = data()
+        output = data()
+
+        inputs.attributes = self.attributes[:-1]
+        output.attributes = list()
+        output.attributes.append(self.attributes[-1])
+
+        inputs.data = [datapoint[:-1] for datapoint in self.data]
+        inputs.data_verbose = [datapoint[:-1] for datapoint in self.data_verbose]
+        
+        for datapoint in self.data:
+            new_datapoint = list()
+            new_datapoint.append(datapoint[-1])
+            output.data.append(new_datapoint)
+
+        for datapoint in self.data_verbose:
+            new_datapoint = list()
+            new_datapoint.append(datapoint[-1])
+            output.data_verbose.append(new_datapoint)
+
+        return inputs, output
+
 class arff(data):
     def __init__(self, f):
         #Initialize data
@@ -117,13 +140,18 @@ def main():
 
     #Prepare data
     arff_data.shuffle()
-    training_data, validation_data = arff_data.split_percent(.75)
 
-    #Print for debug purposes
-    print(training_data)
-    print(validation_data)
+    training_data, validation_data = arff_data.split_percent(.75)
+    #print(training_data)
+    #print(validation_data)
+
+    training_inputs, training_output = training_data.split_inputs_output()
+    validation_inputs, validation_output = validation_data.split_inputs_output()
+    #print(validation_inputs)
+    #print(validation_output)
 
     #Perform Naive Bayes
+    
 
     return
 
