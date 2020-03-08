@@ -192,11 +192,12 @@ def accuracy(pred_outputs, actual_outputs):
 def main():
     #Get arguments
     ap = argparse.ArgumentParser()
-    ap.add_argument("--filename", default="titanic.arff", help="name of .arff file, if different from titanic.arff")
+    ap.add_argument("-f", "--filename", default="titanic.arff", help="name of .arff file, if different from titanic.arff")
+    ap.add_argument("-s", "--split", default="0.75", help="percent of data used for training")
     args = ap.parse_args()
 
     #Parse ARFF file
-    print("Reading .arff file")
+    print("Reading {}".format(args.filename))
     with open(args.filename) as f:
         arff_data = arff(f)
 
@@ -204,7 +205,7 @@ def main():
     print("Shuffling data")
     arff_data.shuffle()
 
-    split_percent = 0.75
+    split_percent = float(args.split)
     print("Splitting data into {:.2f}% training and {:.2f}% validation".format(100.0 * split_percent, 100.0 * (1.0 - split_percent)))
     arff_data.split_percent(split_percent)
 
