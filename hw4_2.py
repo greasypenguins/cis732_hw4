@@ -7,7 +7,7 @@
 
 import argparse
 import random
-import sklearn
+from sklearn.neural_network import MLPClassifier
 import time
 
 class data:
@@ -129,71 +129,6 @@ class arff(data):
 
         return
 
-class naive_bayes:
-    def __init__(self, dataset):
-        self.dataset = dataset
-        self.inputs = None
-        self.output = None
-
-        if self.dataset.num_training is None:
-            raise Exception("Training split undefined in this dataset")
-
-    def predict_outputs(self, input_datapoints):
-        outputs = list()
-        for input_datapoint in input_datapoints:
-            outputs.append(self.predict_output(input_datapoint))
-        return outputs
-
-    def predict_output(self, input_datapoint):
-        #For each label, predict probability of label
-        probs = list()
-        for i, _ in enumerate(self.dataset.attributes[-1][1]):
-            datapoint = input_datapoint[:]
-            datapoint.append(i)
-            probs.append(self.probability_given_inputs(datapoint))
-
-        #Choose highest probability and return that class (MAP)
-        max_i = 0.0
-        max_prob = 0.0
-        for i, prob in enumerate(probs):
-            if prob > max_prob:
-                max_i = i
-                max_prob = prob
-
-        return max_i
-
-    def probability_of_value(self, position, value):
-        #P(xn)
-        count = 0.0
-        for datapoint in self.dataset.data[:self.dataset.num_training]:
-            if datapoint[position] == value:
-                count += 1.0
-        return count / float(self.dataset.num_training)
-
-    def probability_of_value_given_value(self, pos, val, given_pos, given_val):
-        #P(xm | xn)
-        count = 0.0
-        total = 0.0
-        for datapoint in self.dataset.data[:self.dataset.num_training]:
-            if datapoint[given_pos] == given_val:
-                total += 1.0
-                if datapoint[pos] == val:
-                    count += 1.0
-        if total == 0:
-            raise Exception("Value {} never found in position {}".format(given_val, given_pos))
-        return count / total
-
-    def probability_given_inputs(self, datapoint):
-        #P(y | x1, x2, ... xn) = P(x1|y) * P(x2|y) * … P(xn|y) * P(y)
-        prob = 1.0
-
-        for pos, val in enumerate(datapoint[:-1]):
-            prob *= self.probability_of_value_given_value(pos, val, -1, datapoint[-1])
-
-        prob *= self.probability_of_value(-1, datapoint[-1])
-
-        return prob
-
 def accuracy(pred_outputs, actual_outputs):
     if len(pred_outputs) != len(actual_outputs):
         raise Exception("Different length lists")
@@ -226,6 +161,9 @@ def main():
     ap.add_argument("-f", "--filename",
         default="titanic.arff",
         help="Name of .arff file, if different from titanic.arff")
+    ap.add_argument("-l", "--hidden_layers",
+        default="1",
+        help="Number if hidden layers in the Multilayer Perceptron")
     ap.add_argument("-s", "--split",
         default="0.75",
         help="Percent of data used for training")
@@ -255,29 +193,7 @@ def main():
         split_percent = float(arff_data.num_training) / float(len(arff_data))
         print("Split is {:.2f}% training and {:.2f}% validation".format(100.0 * split_percent, 100.0 * (1.0 - split_percent)))
 
-    #Perform Naive Bayes
-    print("Using Naive Bayes")
-    nb = naive_bayes(arff_data)
-
-    #Demo titanic-specific data
-    print("Predicting a sample data point")
-    datapoint = list()
-    for _ in range(len(arff_data.attributes)):
-        datapoint.append(0)
-
-    datapoint = [0, 0, 0, 0]
-    datapoint_verbose = [arff_data.get_attribute_label_name(pos, val) for pos, val in enumerate(datapoint)]
-
-    prob = nb.probability_given_inputs(datapoint)
-    print("  Probability of {} given {} is {:.2f}%".format(datapoint[-1], datapoint[:-1], 100.0 * prob))
-    print("  Probability of {} given {} is {:.2f}%".format(datapoint_verbose[-1], datapoint_verbose[:-1], 100.0 * prob))
-
-    pred = nb.predict_output(datapoint[:-1])
-    pred_verbose = arff_data.get_attribute_label_name(len(datapoint) - 1, pred)
-    print("  Prediction of {} is {}".format(datapoint[:-1], pred))
-    print("  Prediction of {} is {}".format(datapoint_verbose[:-1], pred_verbose))
-
-    #Run Naive Bayes predictions for training and validation data
+    #Break up data
     training_datapoints = arff_data.get_training_datapoints()
     validation_datapoints = arff_data.get_validation_datapoints()
 
@@ -286,15 +202,44 @@ def main():
     validation_inputs = [datapoint[:-1] for datapoint in validation_datapoints]
     validation_outputs = [datapoint[-1] for datapoint in validation_datapoints]
 
+    #Make Multilayer Perceptron
+    print("Using Multilayer Perceptron")
+    mlp = MLPClassifier(activation="logistic")
+    mlp.n_layers = int(args.hidden_layers)
+
+    print("Fitting model")
+    start_time = time.time()
+    mlp.fit(training_inputs, training_outputs)
+    end_time = time.time()
+    print("  Time taken: {:.2f} s".format(end_time - start_time))
+
+    #Demo a data point
+    print("Predicting a sample data point")
+    datapoint = list()
+    for _ in range(len(arff_data.attributes)):
+        datapoint.append(0)
+
+    datapoint = [0, 0, 0, 0]
+    datapoint_verbose = [arff_data.get_attribute_label_name(pos, val) for pos, val in enumerate(datapoint)]
+
+    x = list()
+    x.append(datapoint[:-1])
+
+    pred = mlp.predict(x)[0]
+    pred_verbose = arff_data.get_attribute_label_name(len(datapoint) - 1, pred)
+    print("  Prediction of {} is {}".format(datapoint[:-1], pred))
+    print("  Prediction of {} is {}".format(datapoint_verbose[:-1], pred_verbose))
+
+    #Run Multilayer Perceptron predictions for training and validation data
     print("Predicting training outputs")
     start_time = time.time()
-    pred_training_outputs = nb.predict_outputs(training_inputs)
+    pred_training_outputs = mlp.predict(training_inputs)
     end_time = time.time()
     print("  Time taken: {:.2f} s".format(end_time - start_time))
 
     print("Predicting validation outputs")
     start_time = time.time()
-    pred_validation_outputs = nb.predict_outputs(validation_inputs)
+    pred_validation_outputs = mlp.predict(validation_inputs)
     end_time = time.time()
     print("  Time taken: {:.2f} s".format(end_time - start_time))
 

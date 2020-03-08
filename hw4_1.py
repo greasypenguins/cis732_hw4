@@ -183,7 +183,7 @@ class naive_bayes:
         return count / total
 
     def probability_given_inputs(self, datapoint):
-        #P(y | x1, x2, ... xn) = P(x1|y) * P(x2|y) * … P(xn|y) * P(y)
+        #P(y | x1, x2, ... xn) = P(x1|y) * P(x2|y) * ... P(xn|y) * P(y)
         prob = 1.0
 
         for pos, val in enumerate(datapoint[:-1]):
@@ -258,7 +258,7 @@ def main():
     print("Using Naive Bayes")
     nb = naive_bayes(arff_data)
 
-    #Demo titanic-specific data
+    #Demo a data point
     print("Predicting a sample data point")
     datapoint = list()
     for _ in range(len(arff_data.attributes)):
