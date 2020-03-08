@@ -48,7 +48,7 @@ class data:
         final = "Length: {}\n\nAttributes:\n{}\nData:\n{}".format(len(self), a, d)
 
         return final
-    
+
     def shuffle(self):
         zipped = [x for x in zip(self.data, self.data_verbose)]
         random.shuffle(zipped)
@@ -62,7 +62,7 @@ class data:
 
     def get_validation_datapoints(self):
         return self.data[self.num_training:]
-    
+
     def get_attribute_name(self, pos):
         return self.attributes[pos][0]
 
@@ -73,7 +73,9 @@ class arff(data):
     def __init__(self, f):
         #Initialize data
         data.__init__(self)
+        self.read_data(f, True)
 
+    def read_data(self, f, first_time):
         #While loop reading lines for @s
         at_type = None
         for line in f:
@@ -88,16 +90,7 @@ class arff(data):
                 if at_type == "DATA":
                     continue
 
-            if at_type == "RELATION":
-                continue
-
-            elif at_type == "ATTRIBUTE":
-                attribute = list()
-                attribute.append(words[1])
-                attribute.append(words[2:])
-                self.attributes.append(attribute)
-
-            elif at_type == "DATA":
+            if at_type == "DATA":
                 if len(words) != len(self.attributes):
                     raise Exception("Datapoint does not have the correct number of attributes")
                 datapoint = list()
@@ -110,8 +103,28 @@ class arff(data):
                 self.data_verbose.append(words)
                 self.data.append(datapoint)
 
+            elif not first_time:
+                #All non-data fields were already read previously, so no need to process them
+                continue
+
+            elif at_type == "RELATION":
+                #This seems useless?
+                continue
+
+            elif at_type == "ATTRIBUTE":
+                attribute = list()
+                attribute.append(words[1])
+                attribute.append(words[2:])
+                self.attributes.append(attribute)
+
             else:
                 raise Exception("Unknown arff format")
+
+        return
+
+    def read_val_data(self, f):
+        self.num_training = len(self.data)
+        self.read_data(f, False)
 
         return
 
@@ -145,7 +158,7 @@ class naive_bayes:
             if prob > max_prob:
                 max_i = i
                 max_prob = prob
-        
+
         return max_i
 
     def probability_of_value(self, position, value):
@@ -172,10 +185,10 @@ class naive_bayes:
     def probability_given_inputs(self, datapoint):
         #P(y | x1, x2, ... xn) = P(x1|y) * P(x2|y) * … P(xn|y) * P(y)
         prob = 1.0
-        
+
         for pos, val in enumerate(datapoint[:-1]):
             prob *= self.probability_of_value_given_value(pos, val, -1, datapoint[-1])
-        
+
         prob *= self.probability_of_value(-1, datapoint[-1])
 
         return prob
@@ -192,22 +205,36 @@ def accuracy(pred_outputs, actual_outputs):
 def main():
     #Get arguments
     ap = argparse.ArgumentParser()
-    ap.add_argument("-f", "--filename", default="titanic.arff", help="name of .arff file, if different from titanic.arff")
-    ap.add_argument("-s", "--split", default="0.75", help="percent of data used for training")
+    ap.add_argument("-f", "--filename",
+        default="titanic.arff",
+        help="Name of .arff file, if different from titanic.arff")
+    ap.add_argument("-s", "--split",
+        default="0.75",
+        help="Percent of data used for training")
+    ap.add_argument("-v", "--val_filename",
+        default=None,
+        help="Optional name of valifation .arff file; if specified, the split argument is ignored")
     args = ap.parse_args()
 
     #Parse ARFF file
-    print("Reading {}".format(args.filename))
+    print("Reading \"{}\"".format(args.filename))
     with open(args.filename) as f:
         arff_data = arff(f)
 
-    #Prepare data
-    print("Shuffling data")
-    arff_data.shuffle()
-
-    split_percent = float(args.split)
-    print("Splitting data into {:.2f}% training and {:.2f}% validation".format(100.0 * split_percent, 100.0 * (1.0 - split_percent)))
-    arff_data.split_percent(split_percent)
+    if args.val_filename is None:
+        #Prepare data
+        print("Shuffling data")
+        arff_data.shuffle()
+        split_percent = float(args.split)
+        print("Splitting data into {:.2f}% training and {:.2f}% validation".format(100.0 * split_percent, 100.0 * (1.0 - split_percent)))
+        arff_data.split_percent(split_percent)
+    else:
+        #Parse validation ARFF file
+        print("Reading \"{}\" (validation data)".format(args.val_filename))
+        with open(args.val_filename) as f:
+            arff_data.read_val_data(f)
+        split_percent = float(arff_data.num_training) / float(len(arff_data))
+        print("Split is {:.2f}% training and {:.2f}% validation".format(100.0 * split_percent, 100.0 * (1.0 - split_percent)))
 
     #Perform Naive Bayes
     print("Using Naive Bayes")
@@ -251,7 +278,7 @@ def main():
     pred_validation_outputs = nb.predict_outputs(validation_inputs)
     end_time = time.time()
     print("  Time taken: {:.2f} s".format(end_time - start_time))
-    
+
     training_error = 1.0 - accuracy(pred_training_outputs, training_outputs)
     validation_error = 1.0 - accuracy(pred_validation_outputs, validation_outputs)
 
